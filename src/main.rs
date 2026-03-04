@@ -1,7 +1,7 @@
 mod messages;
 mod rooms;
 
-use std::{env, net::SocketAddr, sync::Arc};
+use std::{env, net::SocketAddr, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
 
 use axum::{
     extract::{
@@ -11,19 +11,34 @@ use axum::{
     http::Method,
     response::IntoResponse,
     routing::get,
-    Router,
+    Json, Router,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use futures_util::{SinkExt, StreamExt};
+use hmac::{Hmac, Mac};
 use messages::{ClientMsg, ServerMsg};
 use rooms::{new_room_map, PeerHandle, RoomMap};
+use serde::Serialize;
+use sha1::Sha1;
 use tokio::sync::mpsc;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info, warn};
+
+type HmacSha1 = Hmac<Sha1>;
 
 #[derive(Clone)]
 struct AppState {
     rooms: RoomMap,
     max_peers: usize,
+    turn_secret: String,
+    turn_url: String,
+}
+
+#[derive(Serialize)]
+struct TurnCredentials {
+    urls: String,
+    username: String,
+    credential: String,
 }
 
 #[tokio::main]
@@ -48,9 +63,16 @@ async fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(2);
 
+    let turn_secret = env::var("TURN_SECRET")
+        .unwrap_or_else(|_| "change-me-to-a-random-string".into());
+    let turn_url = env::var("TURN_URL")
+        .unwrap_or_else(|_| "turn:161.97.187.145:3478".into());
+
     let state = AppState {
         rooms: new_room_map(),
         max_peers,
+        turn_secret,
+        turn_url,
     };
 
     let cors = CorsLayer::new()
@@ -60,6 +82,7 @@ async fn main() {
     let app = Router::new()
         .route("/ws", get(ws_handler))
         .route("/health", get(health))
+        .route("/turn-credentials", get(turn_credentials))
         .layer(cors)
         .with_state(Arc::new(state));
 
@@ -76,6 +99,29 @@ async fn main() {
 
 async fn health() -> &'static str {
     "ok"
+}
+
+/// Return short-lived coturn HMAC credentials for browser clients.
+async fn turn_credentials(State(state): State<Arc<AppState>>) -> Json<TurnCredentials> {
+    let ttl = 86400u64; // 24 hours
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + ttl;
+
+    let username = format!("{timestamp}:disintea");
+
+    let mut mac = HmacSha1::new_from_slice(state.turn_secret.as_bytes())
+        .expect("HMAC init failed");
+    mac.update(username.as_bytes());
+    let credential = BASE64.encode(mac.finalize().into_bytes());
+
+    Json(TurnCredentials {
+        urls: state.turn_url.clone(),
+        username,
+        credential,
+    })
 }
 
 async fn ws_handler(

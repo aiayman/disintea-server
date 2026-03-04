@@ -1,0 +1,12 @@
+target/
+.git/
+.gitignore
+.env
+web-dist/
+certs/
+logs/
+deploy/
+*.md
+Dockerfile*
+docker-compose*.yml
+nginx*.conf
