@@ -1,0 +1,17 @@
+[Unit]
+Description=Dismony Signaling Server
+After=network.target
+
+[Service]
+Type=simple
+User=dismony
+ExecStart=/usr/local/bin/dismony-server
+Restart=always
+RestartSec=5
+Environment="BIND_ADDR=0.0.0.0:8080"
+Environment="MAX_PEERS_PER_ROOM=2"
+# Adjust RUST_LOG for verbosity: info | debug | trace
+Environment="RUST_LOG=dismony_server=info"
+
+[Install]
+WantedBy=multi-user.target
