@@ -14,7 +14,7 @@ sed -i 's/#TURNSERVER_ENABLED=1/TURNSERVER_ENABLED=1/' /etc/default/coturn
 
 echo "==> Writing /etc/turnserver.conf..."
 cat > /etc/turnserver.conf <<EOF
-# Dismony coturn configuration
+# Disintea coturn configuration
 listening-port=3478
 tls-listening-port=5349
 

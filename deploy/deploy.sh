@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# deploy.sh — Build + deploy dismony-server to your Contabo VPS
+# deploy.sh — Build + deploy disintea-server to your Contabo VPS
 # Usage: VPS_HOST=root@1.2.3.4 ./deploy.sh
 set -euo pipefail
 
 VPS_HOST="${VPS_HOST:?Set VPS_HOST=user@your-vps-ip}"
-BINARY="dismony-server"
+BINARY="disintea-server"
 REMOTE_BIN="/usr/local/bin/$BINARY"
 SERVICE="$BINARY.service"
 
@@ -28,8 +28,8 @@ ssh "$VPS_HOST" "curl -sf http://localhost:8080/health && echo ' <- health OK'"
 
 echo "==> Deploy complete!"
 echo "    Remember to:"
-echo "    1. Create system user:  adduser --system --no-create-home dismony"
-echo "    2. Install nginx conf:  cp deploy/nginx-dismony.conf /etc/nginx/sites-available/dismony"
-echo "    3. Enable nginx site:   ln -s /etc/nginx/sites-available/dismony /etc/nginx/sites-enabled/"
+echo "    1. Create system user:  adduser --system --no-create-home disintea"
+echo "    2. Install nginx conf:  cp deploy/nginx-disintea.conf /etc/nginx/sites-available/disintea"
+echo "    3. Enable nginx site:   ln -s /etc/nginx/sites-available/disintea /etc/nginx/sites-enabled/"
 echo "    4. Obtain TLS cert:     certbot --nginx -d your.domain.com"
 echo "    5. Edit BIND_ADDR and MAX_PEERS_PER_ROOM in /etc/systemd/system/$SERVICE"

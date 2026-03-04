@@ -1,6 +1,6 @@
-# dismony-server
+# disintea-server
 
-WebSocket signaling server for the Dismony voice/screen-sharing app.
+WebSocket signaling server for the Disintea voice/screen-sharing app.
 
 ## Stack
 - Rust + axum 0.8 (WebSocket upgrade, HTTP)
@@ -48,7 +48,7 @@ cargo run
 |---|---|---|
 | `BIND_ADDR` | `0.0.0.0:8080` | Listen address |
 | `MAX_PEERS_PER_ROOM` | `2` | Max peers per room (1-on-1 default) |
-| `RUST_LOG` | `dismony_server=info` | Log level |
+| `RUST_LOG` | `disintea_server=info` | Log level |
 | `TURN_SECRET` | *(required for client)* | Shared secret with coturn |
 
 ## Deploying to VPS
@@ -61,8 +61,8 @@ VPS_HOST=root@YOUR_VPS_IP ./deploy/deploy.sh
 DOMAIN=your.domain.com TURN_SECRET=your-secret ./deploy/setup-coturn.sh
 
 # Install nginx reverse proxy (WSS termination)
-cp deploy/nginx-dismony.conf /etc/nginx/sites-available/dismony
-ln -s /etc/nginx/sites-available/dismony /etc/nginx/sites-enabled/
+cp deploy/nginx-disintea.conf /etc/nginx/sites-available/disintea
+ln -s /etc/nginx/sites-available/disintea /etc/nginx/sites-enabled/
 certbot --nginx -d your.domain.com
 nginx -t && systemctl reload nginx
 ```

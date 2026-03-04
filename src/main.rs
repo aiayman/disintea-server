@@ -34,7 +34,7 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "dismony_server=info,tower_http=warn".into()),
+                .unwrap_or_else(|_| "disintea_server=info,tower_http=warn".into()),
         )
         .init();
 
@@ -63,7 +63,7 @@ async fn main() {
         .layer(cors)
         .with_state(Arc::new(state));
 
-    info!("dismony-server listening on {bind_addr} (max_peers_per_room={max_peers})");
+    info!("disintea-server listening on {bind_addr} (max_peers_per_room={max_peers})");
 
     let listener = tokio::net::TcpListener::bind(bind_addr)
         .await
