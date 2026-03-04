@@ -4,60 +4,65 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClientMsg {
-    /// First message after connecting — request to join a room
-    Join {
-        room_code: String,
-        peer_id: String,
+    /// First message after connecting — identify yourself and provide your contacts list
+    Register {
+        user_id: String,
+        username: String,
+        /// IDs of contacts so the server can notify them of your presence
+        contacts: Vec<String>,
     },
-    /// WebRTC SDP offer, relayed to the other peer(s)
-    Offer {
-        sdp: String,
-        /// target peer_id; if None, broadcast to all others in room
-        to: Option<String>,
-    },
-    /// WebRTC SDP answer
-    Answer {
-        sdp: String,
-        to: Option<String>,
-    },
-    /// ICE candidate
+    /// Initiate a call to another user (contains the SDP offer)
+    CallOffer { to: String, sdp: String },
+    /// Accept an incoming call (contains the SDP answer)
+    CallAnswer { to: String, sdp: String },
+    /// Decline an incoming call
+    CallReject { to: String },
+    /// End an ongoing call
+    HangUp { to: String },
+    /// WebRTC ICE candidate
     IceCandidate {
+        to: String,
         candidate: String,
         sdp_mid: Option<String>,
         sdp_m_line_index: Option<u32>,
-        to: Option<String>,
     },
-    /// Graceful disconnect
-    Leave,
+    /// Send a chat message to another user
+    ChatMessage { to: String, text: String, msg_id: String },
 }
 
 /// Messages sent from the server to the client
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ServerMsg {
-    /// Acknowledgment that the peer joined the room
-    Joined {
-        peer_count: usize,
-        /// IDs of existing peers already in the room
-        existing_peers: Vec<String>,
-    },
-    /// Notified when a new peer enters the room
-    PeerJoined { peer_id: String },
-    /// Notified when a peer leaves or disconnects
-    PeerLeft { peer_id: String },
-    /// Relayed offer from another peer
-    Offer { sdp: String, from: String },
-    /// Relayed answer from another peer
-    Answer { sdp: String, from: String },
-    /// Relayed ICE candidate from another peer
+    /// Registration acknowledged
+    Registered,
+    /// One of your contacts came online
+    UserOnline { user_id: String, username: String },
+    /// One of your contacts went offline
+    UserOffline { user_id: String },
+    /// Someone is calling you
+    IncomingCall { from: String, from_name: String, sdp: String },
+    /// Your call was accepted
+    CallAnswered { from: String, sdp: String },
+    /// Your call was rejected
+    CallRejected { from: String },
+    /// The other side hung up
+    HangUp { from: String },
+    /// Relayed ICE candidate
     IceCandidate {
+        from: String,
         candidate: String,
         sdp_mid: Option<String>,
         sdp_m_line_index: Option<u32>,
+    },
+    /// Incoming chat message
+    IncomingMessage {
         from: String,
+        from_name: String,
+        text: String,
+        msg_id: String,
+        timestamp: u64,
     },
     /// Server error
     Error { reason: String },
-    /// Room is full
-    RoomFull { max: usize },
 }
