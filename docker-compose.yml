@@ -57,10 +57,8 @@ services:
     restart: always
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE   # nginx needs to bind <1024 ports inside container
+    # nginx master starts as root to bind :443, then spawns workers as uid 101.
+    # cap_drop ALL breaks that flow; keep it standard like chipnuts nginx.
     networks:
       - disintea_network
 
