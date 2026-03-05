@@ -2,7 +2,7 @@
 FROM rust:slim-bookworm AS builder
 WORKDIR /app
 RUN apt-get update -qq \
-    && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+    && apt-get install -y --no-install-recommends pkg-config libssl-dev libsqlite3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Cache dependencies separately (only re-runs when Cargo.toml/Cargo.lock change)
@@ -22,10 +22,11 @@ LABEL org.opencontainers.image.title="disintea-server" \
       org.opencontainers.image.description="Disintea WebSocket signaling server"
 
 RUN apt-get update -qq \
-    && apt-get install -y --no-install-recommends libssl3 ca-certificates wget \
+    && apt-get install -y --no-install-recommends libssl3 ca-certificates wget libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -r disintea \
-    && useradd -r -g disintea -s /sbin/nologin disintea
+    && useradd -r -g disintea -s /sbin/nologin disintea \
+    && mkdir -p /data && chown disintea:disintea /data
 
 COPY --from=builder --chown=disintea:disintea \
      /app/target/release/disintea-server /usr/local/bin/disintea-server

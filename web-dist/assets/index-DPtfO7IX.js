@@ -1,0 +1,1 @@
+import{Channel as a,invoke as e}from"./core-DxBnVPgq.js";async function l(r,t){const n=new a;return n.onmessage=t,await e("plugin:global-shortcut|register",{shortcuts:Array.isArray(r)?r:[r],handler:n})}async function o(){return await e("plugin:global-shortcut|unregister_all",{})}export{l as register,o as unregisterAll};
