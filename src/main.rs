@@ -274,7 +274,31 @@ async fn handle_socket(socket: WebSocket, addr: SocketAddr, state: Arc<AppState>
                                 .await
                                 .unwrap_or_default();
 
-                                // Build contact list and do presence exchange
+                                // Also collect users who have us in THEIR contacts
+                                // (bidirectional presence: they need to know we came online)
+                                let reverse_online = sqlx::query_as::<_, (String,)>(
+                                    "SELECT owner_id FROM contacts
+                                     WHERE contact_id = ?
+                                     AND owner_id != ?"
+                                )
+                                .bind(&user_id)
+                                .bind(&user_id)
+                                .fetch_all(&state.db)
+                                .await
+                                .unwrap_or_default();
+
+                                // Insert into the online map BEFORE building the contact list.
+                                // This closes the race window where two clients connect
+                                // simultaneously and neither sees the other as online.
+                                state.online.insert(user_id.clone(), UserHandle {
+                                    username: username.clone(),
+                                    tx: peer_tx.clone(),
+                                });
+                                my_user_id = Some(user_id.clone());
+
+                                // Build contact list and do presence exchange.
+                                // Because we inserted above, any concurrently-registering
+                                // contact whose insert already ran will be visible here.
                                 let mut contact_list = Vec::new();
                                 for (cid, cname) in &contact_rows {
                                     let online = state.online.contains_key(cid.as_str());
@@ -294,20 +318,9 @@ async fn handle_socket(socket: WebSocket, addr: SocketAddr, state: Arc<AppState>
                                     });
                                 }
 
-                                // Also notify any online user who has us in THEIR contacts
-                                // (so the OTHER side sees us come online even if we didn't add them)
-                                let reverse_online = sqlx::query_as::<_, (String,)>(
-                                    "SELECT owner_id FROM contacts
-                                     WHERE contact_id = ?
-                                     AND owner_id != ?"
-                                )
-                                .bind(&user_id)
-                                .bind(&user_id)
-                                .fetch_all(&state.db)
-                                .await
-                                .unwrap_or_default();
-
+                                // Notify reverse watchers that we came online
                                 for (oid,) in &reverse_online {
+                                    // Skip contacts already notified in the forward loop above
                                     if let Some(h) = state.online.get(oid.as_str()) {
                                         let _ = h.tx.send(ServerMsg::UserOnline {
                                             user_id: user_id.clone(),
@@ -315,13 +328,6 @@ async fn handle_socket(socket: WebSocket, addr: SocketAddr, state: Arc<AppState>
                                         });
                                     }
                                 }
-
-                                // Store in-memory handle
-                                state.online.insert(user_id.clone(), UserHandle {
-                                    username: username.clone(),
-                                    tx: peer_tx.clone(),
-                                });
-                                my_user_id = Some(user_id.clone());
 
                                 // Ack + send full contact list
                                 let _ = peer_tx.send(ServerMsg::Registered);
@@ -492,6 +498,12 @@ async fn handle_socket(socket: WebSocket, addr: SocketAddr, state: Arc<AppState>
                                         if let Some(h) = state.online.get(&to) {
                                             let _ = h.tx.send(ServerMsg::IncomingCall {
                                                 from: from_id.clone(), from_name, sdp,
+                                            });
+                                        } else {
+                                            // Recipient is not online — tell the caller immediately
+                                            // so they don't get stuck on the call screen.
+                                            let _ = peer_tx.send(ServerMsg::CallRejected {
+                                                from: to.clone(),
                                             });
                                         }
                                     }
