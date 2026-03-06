@@ -331,9 +331,15 @@ async fn handle_socket(socket: WebSocket, addr: SocketAddr, state: Arc<AppState>
 
                                 // Ack + send full contact list
                                 let _ = peer_tx.send(ServerMsg::Registered);
-                                let _ = peer_tx.send(ServerMsg::ContactList { contacts: contact_list });
+                                let _ = peer_tx.send(ServerMsg::ContactList { contacts: contact_list.clone() });
 
-                                info!("{addr} registered as '{username}' ({user_id})");
+                                info!(
+                                    "{addr} registered as '{username}' ({user_id}) — \
+                                     {} contacts loaded, {} currently online (total online: {})",
+                                    contact_list.len(),
+                                    contact_list.iter().filter(|c| c.online).count(),
+                                    state.online.len()
+                                );
                             }
 
                             // ────────────────────────────────────────────────
@@ -360,6 +366,8 @@ async fn handle_socket(socket: WebSocket, addr: SocketAddr, state: Arc<AppState>
                                             continue;
                                         }
 
+                                        info!("AddContact: '{from_name}' ({from_id}) wants to add ({contact_id})");
+
                                         // Fetch contact's username from DB
                                         let contact_user = sqlx::query_as::<_, (String,)>(
                                             "SELECT username FROM users WHERE id = ?"
@@ -370,12 +378,26 @@ async fn handle_socket(socket: WebSocket, addr: SocketAddr, state: Arc<AppState>
                                         .unwrap_or(None);
 
                                         let contact_username = match contact_user {
-                                            Some((u,)) => u,
+                                            Some((u,)) => {
+                                                info!("AddContact: target ({contact_id}) found in DB as '{u}'");
+                                                u
+                                            }
                                             None => {
+                                                info!("AddContact: target ({contact_id}) not in DB, checking online map");
                                                 // Try online map
                                                 match state.online.get(contact_id.as_str()) {
-                                                    Some(h) => h.username.clone(),
+                                                    Some(h) => {
+                                                        info!("AddContact: target ({contact_id}) found in online map as '{}'", h.username);
+                                                        h.username.clone()
+                                                    }
                                                     None => {
+                                                        warn!(
+                                                            "AddContact: target ({contact_id}) not found anywhere \
+                                                             (DB has {} users, {} currently online)",
+                                                            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
+                                                                .fetch_one(&state.db).await.unwrap_or(0),
+                                                            state.online.len()
+                                                        );
                                                         let _ = peer_tx.send(ServerMsg::Error {
                                                             reason: "user not found — they need to connect at least once".into()
                                                         });
