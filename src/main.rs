@@ -450,7 +450,10 @@ async fn handle_socket(socket: WebSocket, addr: SocketAddr, state: Arc<AppState>
                                     // ── GetHistory ───────────────────────────
                                     ClientMsg::GetHistory { with_user_id, before, limit } => {
                                         let lim = limit.unwrap_or(50).min(200) as i64;
-                                        let before_ts = before.unwrap_or(u64::MAX) as i64;
+                                        // before is millisecond timestamp; default to i64::MAX
+                                        // (NOT u64::MAX — that wraps to -1 in Rust's as i64 cast
+                                        //  and makes every query return zero rows)
+                                        let before_ts = before.map(|b| b as i64).unwrap_or(i64::MAX);
 
                                         let rows = sqlx::query_as::<_, (String, String, String, i64)>(
                                             "SELECT id, from_id, text, timestamp
